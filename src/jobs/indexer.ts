@@ -42,6 +42,9 @@ export default {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     const result = await response.json();
+    const path = "../output.json";
+    // @ts-expect-error
+    await Bun.write(path, JSON.stringify(result.data.transactions));
     // @ts-ignore
     console.log(JSON.stringify(result.data.transactions));
     // @ts-ignore

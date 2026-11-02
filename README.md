@@ -1,4 +1,4 @@
-# indexer
+# verzeichnis
 
 To install dependencies:
 
