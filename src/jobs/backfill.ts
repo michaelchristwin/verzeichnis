@@ -1,4 +1,4 @@
-import { sql } from "bun";
+import { pg } from "../db";
 
 type CacheEntry<T> = { value: T; expiresAt: number };
 const CACHE_MAX_ENTRIES = 120;
@@ -25,32 +25,41 @@ function getCache<T>(key: string): T | undefined {
 const GENESIS_BLOCK = 1395233;
 async function backfill() {
   let min_block = getCache<number>("min_block");
-  if (!min_block) {
-    min_block = 9999;
+  if (min_block === undefined) {
+    const [row] =
+      await pg`SELECT block_height FROM data_points ORDER BY block_height LIMIT 1`;
+    min_block = row;
+    if (min_block === undefined) min_block = GENESIS_BLOCK;
   }
+  setCache("min_block", min_block, 1000 * 60 * 60 * 24);
+
+  const temp = getCache<number>("min_block");
+
   const query = `
-  query {
-	transactions(
-        first: 100
-		sort: HEIGHT_DESC
-		tags: [
-            { name: "Contract-Use", values: ["M3tering Protocol"] }
-            { name: "Content-Type",  values: ["application/json"] }
-            { name: "Contract-Label", values: ["M3ters"]}
-              ]
-	            )
-        {
-		pageInfo { hasNextPage }
-		edges {
-			cursor
-			node {
-				id
-				owner { address }
-				tags { name value }
-        block { height timestamp }
-			}
-		}
-	}
+    query {
+  	transactions(
+          first: 100
+  		sort: HEIGHT_DESC
+  		tags: [
+              { name: "Contract-Use", values: ["M3tering Protocol"] }
+              { name: "Content-Type",  values: ["application/json"] }
+              { name: "Contract-Label", values: ["M3ters"]}
+                ]
+  	            )
+          {
+  		pageInfo { hasNextPage }
+  		edges {
+  			cursor
+  			node {
+  				id
+  				owner { address }
+  				tags { name value }
+          block { height timestamp }
+  			}
+  		}
+  	}
+  }
+    `;
 }
-  `;
-}
+
+await backfill();
