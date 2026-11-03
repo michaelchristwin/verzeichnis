@@ -1,5 +1,5 @@
 import { SQL } from "bun";
 
-if (!process.env.DB_URL) throw Error("Database URL is undefined");
+if (!process.env.DATABASE_URL) throw Error("Database URL is undefined");
 
-export const pg = new SQL(process.env.DB_URL);
+export const pg = new SQL(process.env.DATABASE_URL);
