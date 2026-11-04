@@ -1,5 +1,7 @@
 import { pg } from "../db";
 
+const ARWEAVE_GATEWAY = "https://arweave.net";
+
 type CacheEntry<T> = { value: T; expiresAt: number };
 const CACHE_MAX_ENTRIES = 120;
 const cache = new Map<string, CacheEntry<any>>();
@@ -32,15 +34,22 @@ async function backfill() {
     if (min_block === undefined) min_block = GENESIS_BLOCK;
   }
   setCache("min_block", min_block, 1000 * 60 * 60 * 24);
-
-  const temp = getCache<number>("min_block");
-
+  let cursor: string | undefined;
+  const chainStatusResponse = await fetch(ARWEAVE_GATEWAY);
+  if (!chainStatusResponse.ok) {
+    throw new Error(`HTTP error! status: ${chainStatusResponse.status}`);
+  }
+  const chainStatus = await chainStatusResponse.json();
+  //@ts-ignore
+  const max_block = chainStatus.height as number;
   const query = `
     query {
   	transactions(
           first: 100
-  		sort: HEIGHT_DESC
-  		tags: [
+  		    sort: HEIGHT_DESC
+          ${cursor !== undefined && `after: ${cursor}`}
+          block: { min: ${min_block}, max: ${max_block} }
+  		    tags: [
               { name: "Contract-Use", values: ["M3tering Protocol"] }
               { name: "Content-Type",  values: ["application/json"] }
               { name: "Contract-Label", values: ["M3ters"]}
@@ -60,6 +69,13 @@ async function backfill() {
   	}
   }
     `;
+  const response = await fetch(`${ARWEAVE_GATEWAY}/graphql`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
 }
 
 await backfill();
